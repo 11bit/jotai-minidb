@@ -1,11 +1,13 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
+ * - Migrations mechanics
+ * - Custom db names
+ * - Publish
+ *
  * - Full CRUD
  * - Refactor
- * - Migrations mechanics
- * - Types
- * - clean atom family when delete
+ * - Clean atom family when delete
  * - Test as library
  */
 
@@ -13,23 +15,22 @@ import * as idb from "idb-keyval";
 import { atom } from "jotai/vanilla";
 import { atomFamily } from "jotai/vanilla/utils";
 
-type Value = any;
-type Cache = Record<string, Value>;
-type BroadcastEvent =
-  | {
-      type: "UPDATE";
-      id: string;
-      item: Value;
-    }
-  | {
-      type: "DELETE";
-      id: string;
-    };
+type Cache<Item> = Record<string, Item>;
+type BroadcastEventUpdate<Item> = {
+  type: "UPDATE";
+  id: string;
+  item: Item;
+};
+type BroadcastEventDelete = {
+  type: "DELETE";
+  id: string;
+};
+type BroadcastEvent<Item> = BroadcastEventUpdate<Item> | BroadcastEventDelete;
 export const INIT = Symbol("Reload");
 
-export class JotaiMiniDb {
+export class JotaiMiniDb<Item> {
   private channel = new BroadcastChannel("jotai-minidb");
-  private cache = atom<Cache | undefined>(undefined);
+  private cache = atom<Cache<Item> | undefined>(undefined);
   private onInitilized!: VoidFunction;
   private initPromise = new Promise<void>((resolve) => {
     this.onInitilized = resolve;
@@ -49,11 +50,13 @@ export class JotaiMiniDb {
     async (get, set, update: typeof INIT) => {
       if (update === INIT && !this.isInitialized) {
         set(this.cache, Object.fromEntries(await idb.entries()));
-        this.channel.onmessage = (event: MessageEvent<BroadcastEvent>) => {
+        this.channel.onmessage = (
+          event: MessageEvent<BroadcastEvent<Item>>
+        ) => {
           if (event.data.type === "UPDATE") {
             set(this.cache, (data) => ({
               ...data,
-              [event.data.id]: event.data.item,
+              [event.data.id]: (event.data as BroadcastEventUpdate<Item>).item,
             }));
           } else if (event.data.type === "DELETE") {
             set(this.cache, (data) => {
@@ -74,13 +77,13 @@ export class JotaiMiniDb {
   item = atomFamily((id: string) =>
     atom(
       (get) => get(this.items)?.[id],
-      async (_get, set, update: Value) => {
+      async (_get, set, update: Item) => {
         await set(this.set, id, update);
       }
     )
   );
 
-  set = atom(null, async (get, set, id: string, value: Value) => {
+  set = atom(null, async (get, set, id: string, value: Item) => {
     if (!get(this.cache)) {
       throw new Error("Write to store before it is loaded");
     }

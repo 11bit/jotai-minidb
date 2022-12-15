@@ -1,7 +1,8 @@
 {
   "name": "jotai-minidb",
-  "private": true,
-  "version": "0.0.0",
+  "private": false,
+  "author": "Ivan Buryak",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

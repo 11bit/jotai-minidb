@@ -3,9 +3,12 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 
 import { JotaiMiniDb } from "./lib/jotai-minidb";
 
-const simpleStore = new JotaiMiniDb();
+type Item = {
+  name: string;
+};
+const simpleStore = new JotaiMiniDb<Item>();
 
-function getNewItem() {
+function getNewItem(): Item {
   return {
     name: "",
   };
@@ -54,6 +57,11 @@ export default function Showcase() {
 
 function Item({ id, onDelete }: { id: string; onDelete: VoidFunction }) {
   const [item, setItem] = useAtom(simpleStore.item(id));
+
+  if (!item) {
+    return null;
+  }
+
   return (
     <div>
       <h3>Item #{id}</h3>
