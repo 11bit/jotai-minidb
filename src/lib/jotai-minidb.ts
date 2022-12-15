@@ -2,7 +2,6 @@
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
  * - Migrations mechanics
- * - Custom db names
  * - Publish
  *
  * - Full CRUD
@@ -26,18 +25,23 @@ type BroadcastEventDelete = {
   id: string;
 };
 type BroadcastEvent<Item> = BroadcastEventUpdate<Item> | BroadcastEventDelete;
+
 export const INIT = Symbol("Reload");
+export const DEFAULT_DB_NAME = "jotai-minidb";
 
 export class JotaiMiniDb<Item> {
-  private channel = new BroadcastChannel("jotai-minidb");
+  private channel: BroadcastChannel;
   private cache = atom<Cache<Item> | undefined>(undefined);
   private onInitilized!: VoidFunction;
   private initPromise = new Promise<void>((resolve) => {
     this.onInitilized = resolve;
   });
   private isInitialized = false;
+  private idbStorage: idb.UseStore;
 
-  constructor() {
+  constructor(readonly name: string = DEFAULT_DB_NAME) {
+    this.idbStorage = idb.createStore(name, "key-value");
+    this.channel = new BroadcastChannel(`jotai-minidb-broadcast:${name}`);
     this.items.onMount = (set) => {
       set(INIT);
     };
@@ -49,7 +53,7 @@ export class JotaiMiniDb<Item> {
     (get) => get(this.cache),
     async (get, set, update: typeof INIT) => {
       if (update === INIT && !this.isInitialized) {
-        set(this.cache, Object.fromEntries(await idb.entries()));
+        set(this.cache, Object.fromEntries(await idb.entries(this.idbStorage)));
         this.channel.onmessage = (
           event: MessageEvent<BroadcastEvent<Item>>
         ) => {
@@ -87,7 +91,7 @@ export class JotaiMiniDb<Item> {
     if (!get(this.cache)) {
       throw new Error("Write to store before it is loaded");
     }
-    await idb.set(id, value);
+    await idb.set(id, value, this.idbStorage);
     set(this.cache, (data) => ({ ...data, [id]: value }));
     this.channel.postMessage({ type: "UPDATE", id, item: value });
   });
@@ -96,7 +100,7 @@ export class JotaiMiniDb<Item> {
     if (!get(this.cache)) {
       throw new Error("Delete from the store before it is loaded");
     }
-    await idb.del(id);
+    await idb.del(id, this.idbStorage);
     set(this.cache, (data) => {
       const copy = { ...data };
       delete copy[id];
