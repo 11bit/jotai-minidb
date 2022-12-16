@@ -84,11 +84,94 @@ describe("With custom db name", () => {
     return { db1, db2, store };
   }
 
-  it("Custom db name", async () => {
+  it("Set", async () => {
     const { db1, db2, store } = await setupMany();
 
     await store.set(db1.item("123"), "new value");
     expect(store.get(db1.entries)).toEqual([["123", "new value"]]);
     expect(store.get(db2.entries)).toEqual([]);
+  });
+
+  it("Delete", async () => {
+    const { db1, db2, store } = await setupMany();
+    expect(store.get(db1.entries)).toEqual([["123", "new value"]]);
+    expect(store.get(db2.entries)).toEqual([]);
+
+    await store.set(db2.item("123"), "db2 value");
+    expect(store.get(db1.entries)).toEqual([["123", "new value"]]);
+    expect(store.get(db2.entries)).toEqual([["123", "db2 value"]]);
+
+    await store.set(db1.delete, "123");
+    expect(store.get(db1.entries)).toEqual([]);
+    expect(store.get(db2.entries)).toEqual([["123", "db2 value"]]);
+  });
+});
+
+describe("Migrations", () => {
+  it("Migrates to a new version", async () => {
+    const store = createStore();
+    const db1 = new JotaiMiniDb("mydb");
+    store.set(db1.items, INIT);
+    await store.get(db1.initialized);
+    await store.set(db1.item("123"), { name: "hello" });
+
+    const migratedDb = new JotaiMiniDb("mydb", {
+      version: 2,
+      migrations: {
+        1: (item) => {
+          item.value = "other prop";
+          return item;
+        },
+        2: async (item) => {
+          item.name += await Promise.resolve(" migrated");
+          return item;
+        },
+      },
+    });
+    store.set(migratedDb.items, INIT);
+    await store.get(migratedDb.initialized);
+
+    expect(store.get(migratedDb.entries)).toEqual([
+      ["123", { name: "hello migrated", value: "other prop" }],
+    ]);
+  });
+
+  it("Do not migrate already migrated", async () => {
+    const store = createStore();
+    const db1 = new JotaiMiniDb("mydb2");
+    store.set(db1.items, INIT);
+    await store.get(db1.initialized);
+    await store.set(db1.item("123"), { name: "" });
+
+    // Bump version
+    const bumpVersionDb = new JotaiMiniDb("mydb2", {
+      version: 1,
+      migrations: {
+        1: (item) => item,
+      },
+    });
+    store.set(bumpVersionDb.items, INIT);
+    await store.get(bumpVersionDb.initialized);
+
+    // Migrate
+    const migratedDb = new JotaiMiniDb("mydb2", {
+      version: 2,
+      migrations: {
+        1: (item) => {
+          item.name += "migrated to 1";
+          return item;
+        },
+        2: (item) => {
+          item.name += "migrated to 2";
+          return item;
+        },
+      },
+    });
+    store.set(migratedDb.items, INIT);
+    await store.get(migratedDb.initialized);
+
+    expect(store.get(migratedDb.entries)).toEqual([
+      ["123", { name: "migrated to 2" }],
+    ]);
   });
 });

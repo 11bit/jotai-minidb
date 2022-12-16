@@ -1,10 +1,12 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
- * - Migrations mechanics
+ * - Write README
  * - Publish
  *
  * - Full CRUD
+ *   - clear
+ *   - something else?
  * - Refactor
  * - Clean atom family when delete
  * - Test as library
@@ -26,6 +28,10 @@ type BroadcastEventDelete = {
 };
 type BroadcastEvent<Item> = BroadcastEventUpdate<Item> | BroadcastEventDelete;
 
+type MigrateFn = (previousState: any) => any;
+type Migrations = Record<number, MigrateFn>;
+type Config = { version: number; migrations: Migrations };
+
 export const INIT = Symbol("Reload");
 export const DEFAULT_DB_NAME = "jotai-minidb";
 
@@ -38,13 +44,53 @@ export class JotaiMiniDb<Item> {
   });
   private isInitialized = false;
   private idbStorage: idb.UseStore;
+  private metaStorage: idb.UseStore;
 
-  constructor(readonly name: string = DEFAULT_DB_NAME) {
-    this.idbStorage = idb.createStore(name, "key-value");
+  constructor(
+    readonly name: string = DEFAULT_DB_NAME,
+    private readonly config: Config = { version: 0, migrations: {} }
+  ) {
+    const { keyvalStorage, metaStorage } = createStore(
+      name,
+      "key-value",
+      config
+    );
+    this.idbStorage = keyvalStorage;
+    this.metaStorage = metaStorage;
+
     this.channel = new BroadcastChannel(`jotai-minidb-broadcast:${name}`);
     this.items.onMount = (set) => {
       set(INIT);
     };
+  }
+
+  protected async migrate() {
+    const currentVersion =
+      (await this.metaStorage("readonly", (store) =>
+        idb.promisifyRequest(store.get("version"))
+      )) || 0;
+
+    if (this.config.version > currentVersion) {
+      let entries = await idb.entries(this.idbStorage);
+
+      for (let ver = currentVersion + 1; ver <= this.config.version; ver++) {
+        entries = await Promise.all(
+          entries.map(
+            async ([key, value]) =>
+              [key, await this.config.migrations[ver](value)] as [
+                IDBValidKey,
+                any
+              ]
+          )
+        );
+      }
+
+      await idb.setMany(entries, this.idbStorage);
+
+      await this.metaStorage("readwrite", (store) =>
+        idb.promisifyRequest(store.put(this.config.version, "version"))
+      );
+    }
   }
 
   initialized = atom(() => this.initPromise);
@@ -53,6 +99,7 @@ export class JotaiMiniDb<Item> {
     (get) => get(this.cache),
     async (get, set, update: typeof INIT) => {
       if (update === INIT && !this.isInitialized) {
+        await this.migrate();
         set(this.cache, Object.fromEntries(await idb.entries(this.idbStorage)));
         this.channel.onmessage = (
           event: MessageEvent<BroadcastEvent<Item>>
@@ -108,4 +155,28 @@ export class JotaiMiniDb<Item> {
     });
     this.channel.postMessage({ type: "DELETE", id });
   });
+}
+
+function createStore(
+  dbName: string,
+  storeName: string,
+  config: Config
+): { keyvalStorage: idb.UseStore; metaStorage: idb.UseStore } {
+  const request = indexedDB.open(dbName);
+  request.onupgradeneeded = (event) => {
+    request.result.createObjectStore(storeName);
+    request.result.createObjectStore("_meta");
+  };
+  const dbp = idb.promisifyRequest(request);
+
+  return {
+    keyvalStorage: (txMode, callback) =>
+      dbp.then((db) =>
+        callback(db.transaction(storeName, txMode).objectStore(storeName))
+      ),
+    metaStorage: (txMode, callback) =>
+      dbp.then((db) =>
+        callback(db.transaction("_meta", txMode).objectStore("_meta"))
+      ),
+  };
 }
