@@ -74,8 +74,8 @@ it("Delete", async () => {
 
 describe("With custom db name", () => {
   async function setupMany() {
-    const db1 = new JotaiMiniDb("a");
-    const db2 = new JotaiMiniDb("b");
+    const db1 = new JotaiMiniDb({ name: "a" });
+    const db2 = new JotaiMiniDb({ name: "b" });
     const store = createStore();
     store.set(db1.items, INIT);
     store.set(db2.items, INIT);
@@ -110,12 +110,13 @@ describe("With custom db name", () => {
 describe("Migrations", () => {
   it("Migrates to a new version", async () => {
     const store = createStore();
-    const db1 = new JotaiMiniDb("mydb");
+    const db1 = new JotaiMiniDb({ name: "mydb" });
     store.set(db1.items, INIT);
     await store.get(db1.initialized);
     await store.set(db1.item("123"), { name: "hello" });
 
-    const migratedDb = new JotaiMiniDb("mydb", {
+    const migratedDb = new JotaiMiniDb({
+      name: "mydb",
       version: 2,
       migrations: {
         1: (item) => {
@@ -138,13 +139,14 @@ describe("Migrations", () => {
 
   it("Do not migrate already migrated", async () => {
     const store = createStore();
-    const db1 = new JotaiMiniDb("mydb2");
+    const db1 = new JotaiMiniDb({ name: "mydb2" });
     store.set(db1.items, INIT);
     await store.get(db1.initialized);
     await store.set(db1.item("123"), { name: "" });
 
     // Bump version
-    const bumpVersionDb = new JotaiMiniDb("mydb2", {
+    const bumpVersionDb = new JotaiMiniDb({
+      name: "mydb2",
       version: 1,
       migrations: {
         1: (item) => item,
@@ -154,7 +156,8 @@ describe("Migrations", () => {
     await store.get(bumpVersionDb.initialized);
 
     // Migrate
-    const migratedDb = new JotaiMiniDb("mydb2", {
+    const migratedDb = new JotaiMiniDb({
+      name: "mydb2",
       version: 2,
       migrations: {
         1: (item) => {

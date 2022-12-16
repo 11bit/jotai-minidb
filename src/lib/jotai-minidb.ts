@@ -4,14 +4,14 @@
  * - Write README
  * - Publish
  * - Migrations: other tabs
- * - MIgrations: way to setup migrations without specifying a db name
+ * - Migrations: way to setup migrations without specifying a db name
  *
  * - Full CRUD
  *   - clear
  *   - something else?
  * - Refactor
  * - Clean atom family when delete
- * - Test as library
+ * - Migrations: validate correct migrations are provided, decide what to do if migration doesn't return item
  */
 
 import * as idb from "idb-keyval";
@@ -32,10 +32,16 @@ type BroadcastEvent<Item> = BroadcastEventUpdate<Item> | BroadcastEventDelete;
 
 type MigrateFn = (previousState: any) => any;
 type Migrations = Record<number, MigrateFn>;
-type Config = { version: number; migrations: Migrations };
+type Config = { name: string; version: number; migrations: Migrations };
 
 export const INIT = Symbol("Reload");
 export const DEFAULT_DB_NAME = "jotai-minidb";
+
+const DEFAULT_CONFIG: Config = {
+  name: DEFAULT_DB_NAME,
+  version: 0,
+  migrations: {},
+};
 
 export class JotaiMiniDb<Item> {
   private channel: BroadcastChannel;
@@ -47,20 +53,20 @@ export class JotaiMiniDb<Item> {
   private isInitialized = false;
   private idbStorage: idb.UseStore;
   private metaStorage: idb.UseStore;
+  private config: Config;
 
-  constructor(
-    readonly name: string = DEFAULT_DB_NAME,
-    private readonly config: Config = { version: 0, migrations: {} }
-  ) {
+  constructor(config: Partial<Config> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
     const { keyvalStorage, metaStorage } = createStore(
-      name,
-      "key-value",
-      config
+      this.config.name,
+      "key-value"
     );
     this.idbStorage = keyvalStorage;
     this.metaStorage = metaStorage;
 
-    this.channel = new BroadcastChannel(`jotai-minidb-broadcast:${name}`);
+    this.channel = new BroadcastChannel(
+      `jotai-minidb-broadcast:${this.config.name}`
+    );
     this.items.onMount = (set) => {
       set(INIT);
     };
@@ -161,8 +167,7 @@ export class JotaiMiniDb<Item> {
 
 function createStore(
   dbName: string,
-  storeName: string,
-  config: Config
+  storeName: string
 ): { keyvalStorage: idb.UseStore; metaStorage: idb.UseStore } {
   const request = indexedDB.open(dbName);
   request.onupgradeneeded = (event) => {

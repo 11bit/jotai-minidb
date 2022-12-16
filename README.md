@@ -27,7 +27,7 @@ type Item = {
 const myStore = new JotaiMiniDb<Item>();
 
 // Multiple stores connected to different databases can be created
-const myOtherStore = new JotaiMiniDb<string>()
+const myOtherStore = new JotaiMiniDb<string>({ name: "myOtherStore" })
 
 // 1. Get all keys, values or entries
 export function Entries() {
