@@ -3,6 +3,8 @@
  * TODO:
  * - Write README
  * - Publish
+ * - Migrations: other tabs
+ * - MIgrations: way to setup migrations without specifying a db name
  *
  * - Full CRUD
  *   - clear
