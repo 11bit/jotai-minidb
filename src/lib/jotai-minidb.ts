@@ -1,6 +1,9 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
+ * - JotaiMiniDb - is cumbersome name (too kebabish, DB vs Db)
+ * - Initialization is still a question
+ * - outside of react interface! (for things like importFromFile) -- also it is related to new api
  * - Write README
  * - Publish
  * - Migrations: other tabs
@@ -40,15 +43,15 @@ export const DEFAULT_DB_NAME = "jotai-minidb";
 const DEFAULT_CONFIG: Config = {
   name: DEFAULT_DB_NAME,
   version: 0,
-  migrations: {},
+  migrations: {}
 };
 
 export class JotaiMiniDb<Item> {
   private channel: BroadcastChannel;
   private cache = atom<Cache<Item> | undefined>(undefined);
-  private onInitilized!: VoidFunction;
-  private initPromise = new Promise<void>((resolve) => {
-    this.onInitilized = resolve;
+  private onInitialized!: VoidFunction;
+  private initPromise = new Promise<void>(resolve => {
+    this.onInitialized = resolve;
   });
   private isInitialized = false;
   private idbStorage: idb.UseStore;
@@ -67,14 +70,14 @@ export class JotaiMiniDb<Item> {
     this.channel = new BroadcastChannel(
       `jotai-minidb-broadcast:${this.config.name}`
     );
-    this.items.onMount = (set) => {
+    this.items.onMount = set => {
       set(INIT);
     };
   }
 
   protected async migrate() {
     const currentVersion =
-      (await this.metaStorage("readonly", (store) =>
+      (await this.metaStorage("readonly", store =>
         idb.promisifyRequest(store.get("version"))
       )) || 0;
 
@@ -95,16 +98,20 @@ export class JotaiMiniDb<Item> {
 
       await idb.setMany(entries, this.idbStorage);
 
-      await this.metaStorage("readwrite", (store) =>
+      await this.metaStorage("readwrite", store =>
         idb.promisifyRequest(store.put(this.config.version, "version"))
       );
     }
   }
 
-  initialized = atom(() => this.initPromise);
+  initialized = atom(get => {
+    // mount items to run initialization
+    get(this.items);
+    return this.initPromise;
+  });
 
   items = atom(
-    (get) => get(this.cache),
+    get => get(this.cache),
     async (get, set, update: typeof INIT) => {
       if (update === INIT && !this.isInitialized) {
         await this.migrate();
@@ -113,29 +120,29 @@ export class JotaiMiniDb<Item> {
           event: MessageEvent<BroadcastEvent<Item>>
         ) => {
           if (event.data.type === "UPDATE") {
-            set(this.cache, (data) => ({
+            set(this.cache, data => ({
               ...data,
-              [event.data.id]: (event.data as BroadcastEventUpdate<Item>).item,
+              [event.data.id]: (event.data as BroadcastEventUpdate<Item>).item
             }));
           } else if (event.data.type === "DELETE") {
-            set(this.cache, (data) => {
+            set(this.cache, data => {
               const copy = { ...data };
               delete copy[event.data.id];
               return copy;
             });
           }
         };
-        this.onInitilized();
+        this.onInitialized();
       }
     }
   );
 
-  entries = atom((get) => Object.entries(get(this.items) || {}));
-  keys = atom((get) => Object.keys(get(this.items) || {}));
-  values = atom((get) => Object.values(get(this.items) || {}));
+  entries = atom(get => Object.entries(get(this.items) || {}));
+  keys = atom(get => Object.keys(get(this.items) || {}));
+  values = atom(get => Object.values(get(this.items) || {}));
   item = atomFamily((id: string) =>
     atom(
-      (get) => get(this.items)?.[id],
+      get => get(this.items)?.[id],
       async (_get, set, update: Item) => {
         await set(this.set, id, update);
       }
@@ -147,7 +154,7 @@ export class JotaiMiniDb<Item> {
       throw new Error("Write to store before it is loaded");
     }
     await idb.set(id, value, this.idbStorage);
-    set(this.cache, (data) => ({ ...data, [id]: value }));
+    set(this.cache, data => ({ ...data, [id]: value }));
     this.channel.postMessage({ type: "UPDATE", id, item: value });
   });
 
@@ -156,7 +163,7 @@ export class JotaiMiniDb<Item> {
       throw new Error("Delete from the store before it is loaded");
     }
     await idb.del(id, this.idbStorage);
-    set(this.cache, (data) => {
+    set(this.cache, data => {
       const copy = { ...data };
       delete copy[id];
       return copy;
@@ -170,7 +177,7 @@ function createStore(
   storeName: string
 ): { keyvalStorage: idb.UseStore; metaStorage: idb.UseStore } {
   const request = indexedDB.open(dbName);
-  request.onupgradeneeded = (event) => {
+  request.onupgradeneeded = event => {
     request.result.createObjectStore(storeName);
     request.result.createObjectStore("_meta");
   };
@@ -178,12 +185,12 @@ function createStore(
 
   return {
     keyvalStorage: (txMode, callback) =>
-      dbp.then((db) =>
+      dbp.then(db =>
         callback(db.transaction(storeName, txMode).objectStore(storeName))
       ),
     metaStorage: (txMode, callback) =>
-      dbp.then((db) =>
+      dbp.then(db =>
         callback(db.transaction("_meta", txMode).objectStore("_meta"))
-      ),
+      )
   };
 }

@@ -1,30 +1,40 @@
 {
   "name": "jotai-minidb",
-  "private": false,
-  "author": "Ivan Buryak",
-  "version": "0.0.1",
+  "description": "Simple Jotai interface for IndexedDB key-value storage",
+  "author": "Ivan Buryak <ivan.buryak@gmail.com>",
+  "version": "0.0.2",
   "type": "module",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest"
   },
+  "main": "./dist/jotai-minidb.umd.cjs",
+  "types": "./dist/lib/jotai-minidb.d.ts",
+  "exports": {
+    "import": "./dist/jotai-minidb.js",
+    "require": "./dist/jotai-minidb.umd.cjs"
+  },
   "dependencies": {
-    "idb-keyval": "^6.2.0",
-    "jotai": "^1.11.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "idb-keyval": "^6.2.0"
+  },
+  "peerDependencies": {
+    "jotai": ">=1.10.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.26",
     "@types/react-dom": "^18.0.9",
     "@vitejs/plugin-react": "^3.0.0",
     "fake-indexeddb": "^4.0.1",
+    "jotai": "^1.11.2",
     "prettier": "^2.8.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "typescript": "^4.9.3",
     "vite": "^4.0.0",
+    "vite-plugin-dts": "^1.7.1",
     "vitest": "^0.25.7"
-  },
-  "peerDependencies": {}
+  }
 }
