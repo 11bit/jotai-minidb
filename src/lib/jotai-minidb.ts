@@ -1,7 +1,6 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
- * - JotaiMiniDb - is cumbersome name (too kebabish, DB vs Db)
  * - Initialization is still a question
  *   - You can not suspend and have any onMount logic. We need to get rid of onMount
  * - outside of react interface! (for things like importFromFile) -- also it is related to new api
@@ -19,7 +18,7 @@
  */
 
 import * as idb from "idb-keyval";
-import { atom, Setter } from "jotai/vanilla";
+import { atom } from "jotai/vanilla";
 import { atomFamily, loadable } from "jotai/vanilla/utils";
 
 type Cache<Item> = Record<string, Item>;
@@ -32,7 +31,13 @@ type BroadcastEventDelete = {
   type: "DELETE";
   id: string;
 };
-type BroadcastEvent<Item> = BroadcastEventUpdate<Item> | BroadcastEventDelete;
+type BroadcastEventUpdateMany = {
+  type: "UPDATE_MANY";
+};
+type BroadcastEvent<Item> =
+  | BroadcastEventUpdate<Item>
+  | BroadcastEventDelete
+  | BroadcastEventUpdateMany;
 
 type MigrateFn = (previousState: any) => any;
 type Migrations = Record<number, MigrateFn>;
@@ -120,20 +125,26 @@ export class MiniDb<Item> {
       if (update === INIT && !this.isInitialized) {
         await this.migrate();
         set(this.cache, Object.fromEntries(await idb.entries(this.idbStorage)));
-        this.channel.onmessage = (
+        this.channel.onmessage = async (
           event: MessageEvent<BroadcastEvent<Item>>
         ) => {
-          if (event.data.type === "UPDATE") {
+          const payload = event.data;
+          if (payload.type === "UPDATE") {
             set(this.cache, (data) => ({
               ...data,
-              [event.data.id]: (event.data as BroadcastEventUpdate<Item>).item,
+              [payload.id]: payload.item,
             }));
-          } else if (event.data.type === "DELETE") {
+          } else if (payload.type === "DELETE") {
             set(this.cache, (data) => {
               const copy = { ...data };
-              delete copy[event.data.id];
+              delete copy[payload.id];
               return copy;
             });
+          } else if (payload.type === "UPDATE_MANY") {
+            set(
+              this.cache,
+              Object.fromEntries(await idb.entries(this.idbStorage))
+            );
           }
         };
         this.onInitialized();
@@ -162,6 +173,20 @@ export class MiniDb<Item> {
     this.channel.postMessage({ type: "UPDATE", id, item: value });
   });
 
+  setMany = atom(null, async (get, set, entries: [string, Item][]) => {
+    if (!get(this.cache)) {
+      throw new Error("Write to store before it is loaded");
+    }
+    await idb.setMany(entries, this.idbStorage);
+
+    const data = { ...get(this.cache) };
+    for (const [key, val] of entries) {
+      data[key] = val;
+    }
+    set(this.cache, data);
+    this.channel.postMessage({ type: "UPDATE_MANY" });
+  });
+
   delete = atom(null, async (get, set, id: string) => {
     if (!get(this.cache)) {
       throw new Error("Delete from the store before it is loaded");
@@ -173,6 +198,15 @@ export class MiniDb<Item> {
       return copy;
     });
     this.channel.postMessage({ type: "DELETE", id });
+  });
+
+  clear = atom(null, async (get, set) => {
+    if (!get(this.cache)) {
+      throw new Error("Delete from the store before it is loaded");
+    }
+    await idb.clear(this.idbStorage);
+    set(this.cache, {});
+    this.channel.postMessage({ type: "UPDATE_MANY" });
   });
 }
 

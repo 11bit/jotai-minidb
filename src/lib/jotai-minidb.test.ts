@@ -32,8 +32,8 @@ async function setup() {
   const store = createStore();
   store.set(db.items, INIT);
   store.set(db2.items, INIT);
-  await store.get(db.initStatus);
-  await store.get(db2.initStatus);
+  await db["initPromise"];
+  await db2["initPromise"];
   return { db, db2, store };
 }
 
@@ -79,8 +79,8 @@ describe("With custom db name", () => {
     const store = createStore();
     store.set(db1.items, INIT);
     store.set(db2.items, INIT);
-    await store.get(db1.initStatus);
-    await store.get(db2.initStatus);
+    await db1["initPromise"];
+    await db2["initPromise"];
     return { db1, db2, store };
   }
 
@@ -112,7 +112,7 @@ describe("Migrations", () => {
     const store = createStore();
     const db1 = new MiniDb({ name: "mydb" });
     store.set(db1.items, INIT);
-    await store.get(db1.initStatus);
+    await db1["initPromise"];
     await store.set(db1.item("123"), { name: "hello" });
 
     const migratedDb = new MiniDb({
@@ -130,7 +130,7 @@ describe("Migrations", () => {
       },
     });
     store.set(migratedDb.items, INIT);
-    await store.get(migratedDb.initStatus);
+    await migratedDb["initPromise"];
 
     expect(store.get(migratedDb.entries)).toEqual([
       ["123", { name: "hello migrated", value: "other prop" }],
@@ -141,7 +141,7 @@ describe("Migrations", () => {
     const store = createStore();
     const db1 = new MiniDb({ name: "mydb2" });
     store.set(db1.items, INIT);
-    await store.get(db1.initStatus);
+    await db1["initPromise"];
     await store.set(db1.item("123"), { name: "" });
 
     // Bump version
@@ -153,7 +153,7 @@ describe("Migrations", () => {
       },
     });
     store.set(bumpVersionDb.items, INIT);
-    await store.get(bumpVersionDb.initStatus);
+    await bumpVersionDb["initPromise"];
 
     // Migrate
     const migratedDb = new MiniDb({
@@ -171,7 +171,7 @@ describe("Migrations", () => {
       },
     });
     store.set(migratedDb.items, INIT);
-    await store.get(migratedDb.initStatus);
+    await migratedDb["initPromise"];
 
     expect(store.get(migratedDb.entries)).toEqual([
       ["123", { name: "migrated to 2" }],

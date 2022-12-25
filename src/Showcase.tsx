@@ -41,6 +41,8 @@ export default function Showcase() {
         >
           Add ➕
         </button>
+        <Populate />
+        <Clear />
       </div>
       <div className="item">
         {selectedId && (
@@ -76,4 +78,27 @@ function Item({ id, onDelete }: { id: string; onDelete: VoidFunction }) {
       <button onClick={onDelete}>Delete ❌ </button>
     </div>
   );
+}
+
+function Populate() {
+  const setMany = useSetAtom(simpleStore.setMany);
+  const clear = useSetAtom(simpleStore.clear);
+
+  const populate = async () => {
+    await clear();
+    const items: [string, Item][] = Array.from({ length: 10 }).map((_, i) => [
+      `id-${i}`,
+      {
+        name: `item ${i + 1}`,
+      },
+    ]);
+    await setMany(items);
+  };
+
+  return <button onClick={populate}>Populate</button>;
+}
+
+function Clear() {
+  const clear = useSetAtom(simpleStore.clear);
+  return <button onClick={() => clear()}>Clear</button>;
 }
