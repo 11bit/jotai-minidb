@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 
-import { JotaiMiniDb } from "./lib/jotai-minidb";
+import { MiniDb } from "./lib/jotai-minidb";
 
 type Item = {
   name: string;
 };
-const simpleStore = new JotaiMiniDb<Item>();
+const simpleStore = new MiniDb<Item>();
 
 function getNewItem(): Item {
   return {
@@ -15,6 +15,7 @@ function getNewItem(): Item {
 }
 
 export default function Showcase() {
+  useAtomValue(simpleStore.initStatus);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const entries = useAtomValue(simpleStore.entries);
   const set = useSetAtom(simpleStore.set);
@@ -22,6 +23,7 @@ export default function Showcase() {
 
   return (
     <div className="container">
+      <h1>Jotai-minidb example app</h1>
       <div className="sidebar">
         <ul>
           {entries.map(([key, item]) => (

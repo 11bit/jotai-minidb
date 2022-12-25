@@ -1,10 +1,10 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import Showcase from './Showcase'
-import './Showcase.css'
+import React, { Suspense } from "react";
+import ReactDOM from "react-dom/client";
+import Showcase from "./Showcase";
+import "./Showcase.css";
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <Showcase />
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);

@@ -16,7 +16,7 @@ Simple but fully functional way to persist your Jotai atoms in IndexedDB. Analog
 // Jotai V2 API!
 import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 
-import { JotaiMiniDb } from "jotai-minidb";
+import { MiniDb } from "jotai-minidb";
 
 // Items in a store can be typed
 type Item = {
@@ -24,23 +24,23 @@ type Item = {
 };
 
 // Create a store (with default database name)
-const myStore = new JotaiMiniDb<Item>();
+const myDb = new MiniDb<Item>();
 
 // Multiple stores connected to different databases can be created
-const myOtherStore = new JotaiMiniDb<string>({ name: "myOtherStore" })
+const myOtherDb = new MiniDb<string>({ name: "myOtherDb" })
 
 // 1. Get all keys, values or entries
 export function Entries() {
-    const keys = useAtomValue(myStore.keys);
-    const values = useAtomValue(myStore.values);
-    const entries = useAtomValue(myStore.entries);
+    const keys = useAtomValue(myDb.keys);
+    const values = useAtomValue(myDb.values);
+    const entries = useAtomValue(myDb.entries);
 
     return entries.map(([key, entry]) => <li>{entry.name}</li>)
 }
 
 // 2. Get, or set item in a store
 export function Entry() {
-    const [item, setItem] = useAtom(myStore.item('some-item-key'));
+    const [item, setItem] = useAtom(myDb.item('some-item-key'));
 
     if (!item) {
         return null
@@ -74,7 +74,7 @@ type Item = {
   age: number;
 };
 
-const myStore = new JotaiMiniDb<Item>({
+const myDb = new MiniDb<Item>({
     version: 1,
     migrations: {
         1: (item) => {

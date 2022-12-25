@@ -3,7 +3,7 @@ import { it, expect, vi, beforeEach, describe } from "vitest";
 import "fake-indexeddb/auto";
 
 import { entries } from "idb-keyval";
-import { JotaiMiniDb, INIT } from "./jotai-minidb";
+import { MiniDb, INIT } from "./jotai-minidb";
 
 class BCMock {
   static instances: BCMock[] = [];
@@ -27,13 +27,13 @@ class BCMock {
 vi.stubGlobal("BroadcastChannel", BCMock);
 
 async function setup() {
-  const db = new JotaiMiniDb();
-  const db2 = new JotaiMiniDb();
+  const db = new MiniDb();
+  const db2 = new MiniDb();
   const store = createStore();
   store.set(db.items, INIT);
   store.set(db2.items, INIT);
-  await store.get(db.initialized);
-  await store.get(db2.initialized);
+  await store.get(db.initStatus);
+  await store.get(db2.initStatus);
   return { db, db2, store };
 }
 
@@ -74,13 +74,13 @@ it("Delete", async () => {
 
 describe("With custom db name", () => {
   async function setupMany() {
-    const db1 = new JotaiMiniDb({ name: "a" });
-    const db2 = new JotaiMiniDb({ name: "b" });
+    const db1 = new MiniDb({ name: "a" });
+    const db2 = new MiniDb({ name: "b" });
     const store = createStore();
     store.set(db1.items, INIT);
     store.set(db2.items, INIT);
-    await store.get(db1.initialized);
-    await store.get(db2.initialized);
+    await store.get(db1.initStatus);
+    await store.get(db2.initStatus);
     return { db1, db2, store };
   }
 
@@ -110,12 +110,12 @@ describe("With custom db name", () => {
 describe("Migrations", () => {
   it("Migrates to a new version", async () => {
     const store = createStore();
-    const db1 = new JotaiMiniDb({ name: "mydb" });
+    const db1 = new MiniDb({ name: "mydb" });
     store.set(db1.items, INIT);
-    await store.get(db1.initialized);
+    await store.get(db1.initStatus);
     await store.set(db1.item("123"), { name: "hello" });
 
-    const migratedDb = new JotaiMiniDb({
+    const migratedDb = new MiniDb({
       name: "mydb",
       version: 2,
       migrations: {
@@ -130,7 +130,7 @@ describe("Migrations", () => {
       },
     });
     store.set(migratedDb.items, INIT);
-    await store.get(migratedDb.initialized);
+    await store.get(migratedDb.initStatus);
 
     expect(store.get(migratedDb.entries)).toEqual([
       ["123", { name: "hello migrated", value: "other prop" }],
@@ -139,13 +139,13 @@ describe("Migrations", () => {
 
   it("Do not migrate already migrated", async () => {
     const store = createStore();
-    const db1 = new JotaiMiniDb({ name: "mydb2" });
+    const db1 = new MiniDb({ name: "mydb2" });
     store.set(db1.items, INIT);
-    await store.get(db1.initialized);
+    await store.get(db1.initStatus);
     await store.set(db1.item("123"), { name: "" });
 
     // Bump version
-    const bumpVersionDb = new JotaiMiniDb({
+    const bumpVersionDb = new MiniDb({
       name: "mydb2",
       version: 1,
       migrations: {
@@ -153,10 +153,10 @@ describe("Migrations", () => {
       },
     });
     store.set(bumpVersionDb.items, INIT);
-    await store.get(bumpVersionDb.initialized);
+    await store.get(bumpVersionDb.initStatus);
 
     // Migrate
-    const migratedDb = new JotaiMiniDb({
+    const migratedDb = new MiniDb({
       name: "mydb2",
       version: 2,
       migrations: {
@@ -171,7 +171,7 @@ describe("Migrations", () => {
       },
     });
     store.set(migratedDb.items, INIT);
-    await store.get(migratedDb.initialized);
+    await store.get(migratedDb.initStatus);
 
     expect(store.get(migratedDb.entries)).toEqual([
       ["123", { name: "migrated to 2" }],
