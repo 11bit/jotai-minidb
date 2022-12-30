@@ -3,7 +3,7 @@ import { it, expect, vi, beforeEach, describe } from "vitest";
 import "fake-indexeddb/auto";
 
 import { entries } from "idb-keyval";
-import { MiniDb, INIT } from "./jotai-minidb";
+import { MiniDb } from "./jotai-minidb";
 
 class BCMock {
   static instances: BCMock[] = [];
@@ -30,8 +30,6 @@ async function setup() {
   const db = new MiniDb();
   const db2 = new MiniDb();
   const store = createStore();
-  store.set(db.items, INIT);
-  store.set(db2.items, INIT);
   await db["initPromise"];
   await db2["initPromise"];
   return { db, db2, store };
@@ -77,8 +75,6 @@ describe("With custom db name", () => {
     const db1 = new MiniDb({ name: "a" });
     const db2 = new MiniDb({ name: "b" });
     const store = createStore();
-    store.set(db1.items, INIT);
-    store.set(db2.items, INIT);
     await db1["initPromise"];
     await db2["initPromise"];
     return { db1, db2, store };
@@ -111,7 +107,6 @@ describe("Migrations", () => {
   it("Migrates to a new version", async () => {
     const store = createStore();
     const db1 = new MiniDb({ name: "mydb" });
-    store.set(db1.items, INIT);
     await db1["initPromise"];
     await store.set(db1.item("123"), { name: "hello" });
 
@@ -129,7 +124,6 @@ describe("Migrations", () => {
         },
       },
     });
-    store.set(migratedDb.items, INIT);
     await migratedDb["initPromise"];
 
     expect(store.get(migratedDb.entries)).toEqual([
@@ -140,7 +134,6 @@ describe("Migrations", () => {
   it("Do not migrate already migrated", async () => {
     const store = createStore();
     const db1 = new MiniDb({ name: "mydb2" });
-    store.set(db1.items, INIT);
     await db1["initPromise"];
     await store.set(db1.item("123"), { name: "" });
 
@@ -152,7 +145,6 @@ describe("Migrations", () => {
         1: (item) => item,
       },
     });
-    store.set(bumpVersionDb.items, INIT);
     await bumpVersionDb["initPromise"];
 
     // Migrate
@@ -170,7 +162,6 @@ describe("Migrations", () => {
         },
       },
     });
-    store.set(migratedDb.items, INIT);
     await migratedDb["initPromise"];
 
     expect(store.get(migratedDb.entries)).toEqual([

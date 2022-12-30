@@ -81,35 +81,6 @@ export class MiniDb<Item> {
     };
   }
 
-  protected async migrate() {
-    const currentVersion =
-      (await this.metaStorage("readonly", (store) =>
-        idb.promisifyRequest(store.get("version"))
-      )) || 0;
-
-    if (this.config.version > currentVersion) {
-      let entries = await idb.entries(this.idbStorage);
-
-      for (let ver = currentVersion + 1; ver <= this.config.version; ver++) {
-        entries = await Promise.all(
-          entries.map(
-            async ([key, value]) =>
-              [key, await this.config.migrations[ver](value)] as [
-                IDBValidKey,
-                any
-              ]
-          )
-        );
-      }
-
-      await idb.setMany(entries, this.idbStorage);
-
-      await this.metaStorage("readwrite", (store) =>
-        idb.promisifyRequest(store.put(this.config.version, "version"))
-      );
-    }
-  }
-
   initStatus = loadable(
     atom((get) => {
       // mount items to run initialization
@@ -123,8 +94,8 @@ export class MiniDb<Item> {
     async (get, set, update: typeof INIT) => {
       // TODO: Prevent double initialization in parallel
       if (update === INIT && !this.isInitialized) {
-        await this.migrate();
-        set(this.cache, Object.fromEntries(await idb.entries(this.idbStorage)));
+        set(this.cache, await this.preloadData());
+
         this.channel.onmessage = async (
           event: MessageEvent<BroadcastEvent<Item>>
         ) => {
@@ -208,6 +179,48 @@ export class MiniDb<Item> {
     set(this.cache, {});
     this.channel.postMessage({ type: "UPDATE_MANY" });
   });
+
+  protected preloadDataPromise?: Promise<any>;
+
+  protected preloadData() {
+    if (!this.preloadDataPromise) {
+      this.preloadDataPromise = (async () => {
+        await this.migrate();
+        return Object.fromEntries(await idb.entries(this.idbStorage));
+      })();
+    }
+
+    return this.preloadDataPromise;
+  }
+
+  protected async migrate() {
+    const currentVersion =
+      (await this.metaStorage("readonly", (store) =>
+        idb.promisifyRequest(store.get("version"))
+      )) || 0;
+
+    if (this.config.version > currentVersion) {
+      let entries = await idb.entries(this.idbStorage);
+
+      for (let ver = currentVersion + 1; ver <= this.config.version; ver++) {
+        entries = await Promise.all(
+          entries.map(
+            async ([key, value]) =>
+              [key, await this.config.migrations[ver](value)] as [
+                IDBValidKey,
+                any
+              ]
+          )
+        );
+      }
+
+      await idb.setMany(entries, this.idbStorage);
+
+      await this.metaStorage("readwrite", (store) =>
+        idb.promisifyRequest(store.put(this.config.version, "version"))
+      );
+    }
+  }
 }
 
 function createStore(
