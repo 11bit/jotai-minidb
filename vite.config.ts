@@ -20,7 +20,9 @@ export default defineConfig({
       fileName: "jotai-minidb",
     },
     rollupOptions: {
-      external: ["react", "jotai"],
+      external: (dep) => {
+        return dep === "react" || dep.startsWith("jotai");
+      },
     },
   },
 });
