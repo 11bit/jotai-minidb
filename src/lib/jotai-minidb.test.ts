@@ -1,4 +1,4 @@
-import { atom, createStore } from "jotai/vanilla";
+import { createStore } from "jotai/vanilla";
 import { it, expect, vi, beforeEach, describe } from "vitest";
 import "fake-indexeddb/auto";
 
@@ -126,7 +126,10 @@ describe("With custom db name", () => {
 describe("Migrations", () => {
   it("Migrates to a new version", async () => {
     const store = createStore();
-    const db1 = new MiniDb({ name: "mydb" });
+    const db1 = new MiniDb({
+      name: "mydb",
+      onMigrationCompleted: () => {},
+    });
     await store.get(db1.suspendBeforeInit);
     await store.set(db1.item("123"), { name: "hello" });
 
@@ -143,6 +146,7 @@ describe("Migrations", () => {
           return item;
         },
       },
+      onMigrationCompleted: () => {},
     });
     await store.get(migratedDb.suspendBeforeInit);
 
@@ -151,9 +155,12 @@ describe("Migrations", () => {
     ]);
   });
 
-  it("Do not migrate already migrated", async () => {
+  it("Do not run previous migrations", async () => {
     const store = createStore();
-    const db1 = new MiniDb({ name: "mydb2" });
+    const db1 = new MiniDb({
+      name: "mydb2",
+      onMigrationCompleted: () => {},
+    });
     await store.get(db1.suspendBeforeInit);
     await store.set(db1.item("123"), { name: "" });
 
@@ -164,6 +171,7 @@ describe("Migrations", () => {
       migrations: {
         1: (item) => item,
       },
+      onMigrationCompleted: () => {},
     });
     await store.get(bumpVersionDb.suspendBeforeInit);
 

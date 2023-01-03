@@ -3,7 +3,6 @@
  * TODO:
  * - Write README
  * - Publish
- * - Migrations: other tabs
  *
  * - Refactor
  * - Clean atom family when delete
@@ -43,6 +42,7 @@ type Config = {
   version: number;
   migrations: Migrations;
   onMigrationCompleted: VoidFunction;
+  onVersionMissmatch: VoidFunction;
 };
 
 const INIT = Symbol("Reload");
@@ -52,7 +52,11 @@ const DEFAULT_CONFIG: Config = {
   name: DEFAULT_DB_NAME,
   version: 0,
   migrations: {},
-  onMigrationCompleted: () => {},
+  onMigrationCompleted: () => {
+    alert("Data has been migrated. Page should be reloaded");
+    window.location.reload();
+  },
+  onVersionMissmatch: () => {},
 };
 
 export class MiniDb<Item> {
@@ -228,6 +232,12 @@ export class MiniDb<Item> {
       );
 
       this.channel.postMessage({ type: "MIGRATION_COMPLETED" });
+    } else if (this.config.version < currentVersion) {
+      // Old client?
+      this.config.onVersionMissmatch();
+      throw new Error(
+        `[jotai-minidb] Minimal client version is ${this.config.version} but indexeddb database version is ${currentVersion}`
+      );
     }
   }
 }

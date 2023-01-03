@@ -24,7 +24,7 @@ test("Clear", async ({ page1, page2 }) => {
   await page2.expectItems([]);
 });
 
-test("Migrate", async ({ page1, context }) => {
+test("Migration handler", async ({ page1, context }) => {
   await page1.populate();
   const pageWithMigration = await context.newPage();
   await pageWithMigration.goto("/?version=2");
@@ -33,4 +33,15 @@ test("Migrate", async ({ page1, context }) => {
     pageWithMigration.getByText("Item 1(migrated to v1)(migrated to v2)")
   ).toBeVisible();
   await page1.isMigrated();
+});
+
+test("Migration missmatch error", async ({ page1, context }) => {
+  await page1.populate();
+  await page1.page.goto("/?version=1");
+
+  const oldVersionPage = await context.newPage();
+  await oldVersionPage.goto("/");
+  await expect(
+    oldVersionPage.getByText("Client version is too old")
+  ).toBeVisible();
 });

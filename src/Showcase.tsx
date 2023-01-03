@@ -27,6 +27,9 @@ const simpleStore = new MiniDb<Item>({
       "<h1>Migrated in other browser tab. Now the page should be reloaded</h1>"
     );
   },
+  onVersionMissmatch: () => {
+    document.write("<h1>Client version is too old</h1>");
+  },
 });
 
 function getNewItem(): Item {
