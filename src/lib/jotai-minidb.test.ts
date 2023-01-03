@@ -27,8 +27,8 @@ class BCMock {
 vi.stubGlobal("BroadcastChannel", BCMock);
 
 async function setup() {
-  const db = new MiniDb();
-  const db2 = new MiniDb();
+  const db = new MiniDb<string>();
+  const db2 = new MiniDb<string>();
   const store = createStore();
   await store.get(db.suspendBeforeInit);
   await store.get(db2.suspendBeforeInit);
@@ -68,6 +68,26 @@ it("Delete", async () => {
   expect(store.get(db.entries)).toEqual([]);
   expect(store.get(db2.entries)).toEqual([]);
   expect(await entries(db["idbStorage"])).toEqual([]);
+});
+
+it("Set with function", async () => {
+  const { db, store } = await setup();
+
+  await store.set(db.set, "my-item", () => "hello");
+  expect(store.get(db.items)).toEqual({ "my-item": "hello" });
+  await store.set(db.set, "my-item", (oldVal) => oldVal + " world");
+  expect(store.get(db.items)).toEqual({ "my-item": "hello world" });
+
+  await store.set(db.clear); // 😟
+});
+
+it("Set item with function", async () => {
+  const { db, store } = await setup();
+
+  await store.set(db.item("123"), () => "hello");
+  expect(store.get(db.items)).toEqual({ "123": "hello" });
+  await store.set(db.item("123"), (oldVal) => oldVal + "123");
+  expect(store.get(db.items)).toEqual({ "123": "hello123" });
 });
 
 describe("With custom db name", () => {

@@ -1,7 +1,6 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
- * - Functional set db.set(id, item => ({ ...item, something }))
  * - outside of react interface! (for things like importFromFile) -- also it is related to new api
  * - Write README
  * - Publish
@@ -18,7 +17,7 @@
 
 import * as idb from "idb-keyval";
 import { atom } from "jotai/vanilla";
-import { atomFamily, loadable } from "jotai/vanilla/utils";
+import { atomFamily } from "jotai/vanilla/utils";
 
 type Cache<Item> = Record<string, Item>;
 type BroadcastEventUpdate<Item> = {
@@ -125,20 +124,29 @@ export class MiniDb<Item> {
   item = atomFamily((id: string) =>
     atom(
       (get) => get(this.cache)?.[id],
-      async (_get, set, update: Item) => {
+      async (_get, set, update: ValueOrSetter<Item>) => {
         await set(this.set, id, update);
       }
     )
   );
 
-  set = atom(null, async (get, set, id: string, value: Item) => {
-    if (!get(this.cache)) {
-      throw new Error("Write to store before it is loaded");
+  set = atom(
+    null,
+    async (get, set, id: string, valueOrSetter: ValueOrSetter<Item>) => {
+      const cache = get(this.cache);
+      if (!cache) {
+        throw new Error("Write to store before it is loaded");
+      }
+      const value = isSetter(valueOrSetter)
+        ? valueOrSetter(cache[id])
+        : valueOrSetter;
+
+      await idb.set(id, value, this.idbStorage);
+
+      set(this.cache, (data) => ({ ...data, [id]: value }));
+      this.channel.postMessage({ type: "UPDATE", id, item: value });
     }
-    await idb.set(id, value, this.idbStorage);
-    set(this.cache, (data) => ({ ...data, [id]: value }));
-    this.channel.postMessage({ type: "UPDATE", id, item: value });
-  });
+  );
 
   setMany = atom(null, async (get, set, entries: [string, Item][]) => {
     if (!get(this.cache)) {
@@ -232,4 +240,11 @@ function createStore(
         callback(db.transaction("_meta", txMode).objectStore("_meta"))
       ),
   };
+}
+
+type Setter<Item> = (oldVal: Item | undefined) => Item;
+type ValueOrSetter<Item> = Item | Setter<Item>;
+
+function isSetter<Item>(value: ValueOrSetter<Item>): value is Setter<Item> {
+  return typeof value === "function";
 }
