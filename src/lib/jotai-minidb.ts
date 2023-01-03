@@ -1,15 +1,10 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
- * - outside of react interface! (for things like importFromFile) -- also it is related to new api
  * - Write README
  * - Publish
  * - Migrations: other tabs
- * - Migrations: way to setup migrations without specifying a db name
  *
- * - Full CRUD
- *   - clear
- *   - something else?
  * - Refactor
  * - Clean atom family when delete
  * - Migrations: validate correct migrations are provided, decide what to do if migration doesn't return item
