@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import { test } from "../setup.ts";
 
 test("Initialization", async ({ page1, page2 }) => {
@@ -21,4 +22,15 @@ test("Clear", async ({ page1, page2 }) => {
 
   await page1.expectItems([]);
   await page2.expectItems([]);
+});
+
+test("Migrate", async ({ page1, context }) => {
+  await page1.populate();
+  const pageWithMigration = await context.newPage();
+  await pageWithMigration.goto("/?version=2");
+
+  await expect(
+    pageWithMigration.getByText("Item 1(migrated to v1)(migrated to v2)")
+  ).toBeVisible();
+  await page1.isMigrated();
 });

@@ -24,6 +24,14 @@ class ShowcaseController {
     await expect(items).toHaveCount(itemNames.length);
     expect(await items.allInnerTexts()).toEqual(itemNames);
   }
+
+  async isMigrated() {
+    return this.page
+      .getByText(
+        "Migrated in other browser tab. Now the page should be reloaded"
+      )
+      .isVisible();
+  }
 }
 
 export const test = base.extend<{

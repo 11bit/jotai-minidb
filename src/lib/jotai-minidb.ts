@@ -27,14 +27,23 @@ type BroadcastEventDelete = {
 type BroadcastEventUpdateMany = {
   type: "UPDATE_MANY";
 };
+type BroadcastEventMigrationCompleted = {
+  type: "MIGRATION_COMPLETED";
+};
 type BroadcastEvent<Item> =
   | BroadcastEventUpdate<Item>
   | BroadcastEventDelete
-  | BroadcastEventUpdateMany;
+  | BroadcastEventUpdateMany
+  | BroadcastEventMigrationCompleted;
 
 type MigrateFn = (previousState: any) => any;
 type Migrations = Record<number, MigrateFn>;
-type Config = { name: string; version: number; migrations: Migrations };
+type Config = {
+  name: string;
+  version: number;
+  migrations: Migrations;
+  onMigrationCompleted: VoidFunction;
+};
 
 const INIT = Symbol("Reload");
 export const DEFAULT_DB_NAME = "jotai-minidb";
@@ -43,6 +52,7 @@ const DEFAULT_CONFIG: Config = {
   name: DEFAULT_DB_NAME,
   version: 0,
   migrations: {},
+  onMigrationCompleted: () => {},
 };
 
 export class MiniDb<Item> {
@@ -54,6 +64,7 @@ export class MiniDb<Item> {
 
   // Initialization
   private initialDataPromise?: Promise<any>;
+  private channelListenersInitialized = false;
 
   constructor(config: Partial<Config> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -63,6 +74,9 @@ export class MiniDb<Item> {
     );
     this.idbStorage = keyvalStorage;
     this.metaStorage = metaStorage;
+    this.channel = new BroadcastChannel(
+      `jotai-minidb-broadcast:${this.config.name}`
+    );
   }
 
   suspendBeforeInit = atom(async (get) => {
@@ -79,14 +93,11 @@ export class MiniDb<Item> {
 
       return get(this.cache);
     },
-    async (get, set, items: Cache<Item>) => {
+    async (_get, set, items: Cache<Item>) => {
       set(this.cache, items);
 
-      if (!this.channel) {
-        this.channel = new BroadcastChannel(
-          `jotai-minidb-broadcast:${this.config.name}`
-        );
-
+      if (!this.channelListenersInitialized) {
+        this.channelListenersInitialized = true;
         this.channel.onmessage = async (
           event: MessageEvent<BroadcastEvent<Item>>
         ) => {
@@ -107,6 +118,8 @@ export class MiniDb<Item> {
               this.cache,
               Object.fromEntries(await idb.entries(this.idbStorage))
             );
+          } else if (payload.type === "MIGRATION_COMPLETED") {
+            this.config.onMigrationCompleted();
           }
         };
       }
@@ -194,13 +207,16 @@ export class MiniDb<Item> {
       let entries = await idb.entries(this.idbStorage);
 
       for (let ver = currentVersion + 1; ver <= this.config.version; ver++) {
+        const migrateFn = this.config.migrations[ver];
+        if (!migrateFn) {
+          throw new Error(
+            `Migrate function for version ${ver} is not provided`
+          );
+        }
         entries = await Promise.all(
           entries.map(
             async ([key, value]) =>
-              [key, await this.config.migrations[ver](value)] as [
-                IDBValidKey,
-                any
-              ]
+              [key, await migrateFn(value)] as [IDBValidKey, any]
           )
         );
       }
@@ -210,6 +226,8 @@ export class MiniDb<Item> {
       await this.metaStorage("readwrite", (store) =>
         idb.promisifyRequest(store.put(this.config.version, "version"))
       );
+
+      this.channel.postMessage({ type: "MIGRATION_COMPLETED" });
     }
   }
 }

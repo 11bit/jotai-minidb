@@ -6,7 +6,28 @@ import { MiniDb } from "./lib/jotai-minidb";
 type Item = {
   name: string;
 };
-const simpleStore = new MiniDb<Item>();
+
+const version =
+  Number(
+    window && new URLSearchParams(new URL(location.href).search).get("version")
+  ) || 0;
+
+const simpleStore = new MiniDb<Item>({
+  version,
+  migrations: Object.fromEntries(
+    Array.from({ length: version }).map((_, index) => [
+      String(index + 1),
+      (doc) => {
+        return { ...doc, name: doc.name + `(migrated to v${index + 1})` };
+      },
+    ])
+  ),
+  onMigrationCompleted: () => {
+    document.write(
+      "<h1>Migrated in other browser tab. Now the page should be reloaded</h1>"
+    );
+  },
+});
 
 function getNewItem(): Item {
   return {
