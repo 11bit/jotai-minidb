@@ -1,4 +1,4 @@
-import { createStore } from "jotai/vanilla";
+import { atom, createStore } from "jotai/vanilla";
 import { it, expect, vi, beforeEach, describe } from "vitest";
 import "fake-indexeddb/auto";
 
@@ -30,8 +30,8 @@ async function setup() {
   const db = new MiniDb();
   const db2 = new MiniDb();
   const store = createStore();
-  await db["initPromise"];
-  await db2["initPromise"];
+  await store.get(db.suspendBeforeInit);
+  await store.get(db2.suspendBeforeInit);
   return { db, db2, store };
 }
 
@@ -75,8 +75,8 @@ describe("With custom db name", () => {
     const db1 = new MiniDb({ name: "a" });
     const db2 = new MiniDb({ name: "b" });
     const store = createStore();
-    await db1["initPromise"];
-    await db2["initPromise"];
+    await store.get(db1.suspendBeforeInit);
+    await store.get(db2.suspendBeforeInit);
     return { db1, db2, store };
   }
 
@@ -107,7 +107,7 @@ describe("Migrations", () => {
   it("Migrates to a new version", async () => {
     const store = createStore();
     const db1 = new MiniDb({ name: "mydb" });
-    await db1["initPromise"];
+    await store.get(db1.suspendBeforeInit);
     await store.set(db1.item("123"), { name: "hello" });
 
     const migratedDb = new MiniDb({
@@ -124,7 +124,7 @@ describe("Migrations", () => {
         },
       },
     });
-    await migratedDb["initPromise"];
+    await store.get(migratedDb.suspendBeforeInit);
 
     expect(store.get(migratedDb.entries)).toEqual([
       ["123", { name: "hello migrated", value: "other prop" }],
@@ -134,7 +134,7 @@ describe("Migrations", () => {
   it("Do not migrate already migrated", async () => {
     const store = createStore();
     const db1 = new MiniDb({ name: "mydb2" });
-    await db1["initPromise"];
+    await store.get(db1.suspendBeforeInit);
     await store.set(db1.item("123"), { name: "" });
 
     // Bump version
@@ -145,7 +145,7 @@ describe("Migrations", () => {
         1: (item) => item,
       },
     });
-    await bumpVersionDb["initPromise"];
+    await store.get(bumpVersionDb.suspendBeforeInit);
 
     // Migrate
     const migratedDb = new MiniDb({
@@ -162,7 +162,7 @@ describe("Migrations", () => {
         },
       },
     });
-    await migratedDb["initPromise"];
+    await store.get(migratedDb.suspendBeforeInit);
 
     expect(store.get(migratedDb.entries)).toEqual([
       ["123", { name: "migrated to 2" }],

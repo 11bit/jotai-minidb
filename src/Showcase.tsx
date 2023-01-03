@@ -15,7 +15,6 @@ function getNewItem(): Item {
 }
 
 export default function Showcase() {
-  useAtomValue(simpleStore.initStatus);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const entries = useAtomValue(simpleStore.entries);
   const set = useSetAtom(simpleStore.set);

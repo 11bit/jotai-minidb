@@ -1,8 +1,7 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
- * - Initialization is still a question
- *   - You can not suspend and have any onMount logic. We need to get rid of onMount
+ * - Functional set db.set(id, item => ({ ...item, something }))
  * - outside of react interface! (for things like importFromFile) -- also it is related to new api
  * - Write README
  * - Publish
@@ -43,7 +42,7 @@ type MigrateFn = (previousState: any) => any;
 type Migrations = Record<number, MigrateFn>;
 type Config = { name: string; version: number; migrations: Migrations };
 
-export const INIT = Symbol("Reload");
+const INIT = Symbol("Reload");
 export const DEFAULT_DB_NAME = "jotai-minidb";
 
 const DEFAULT_CONFIG: Config = {
@@ -53,16 +52,14 @@ const DEFAULT_CONFIG: Config = {
 };
 
 export class MiniDb<Item> {
-  private channel: BroadcastChannel;
+  private channel!: BroadcastChannel;
   private cache = atom<Cache<Item> | undefined>(undefined);
-  private onInitialized!: VoidFunction;
-  private initPromise = new Promise<void>((resolve) => {
-    this.onInitialized = resolve;
-  });
-  private isInitialized = false;
   private idbStorage: idb.UseStore;
   private metaStorage: idb.UseStore;
   private config: Config;
+
+  // Initialization
+  private initialDataPromise?: Promise<any>;
 
   constructor(config: Partial<Config> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -72,29 +69,29 @@ export class MiniDb<Item> {
     );
     this.idbStorage = keyvalStorage;
     this.metaStorage = metaStorage;
-
-    this.channel = new BroadcastChannel(
-      `jotai-minidb-broadcast:${this.config.name}`
-    );
-    this.items.onMount = (set) => {
-      set(INIT);
-    };
   }
 
-  initStatus = loadable(
-    atom((get) => {
-      // mount items to run initialization
-      get(this.items);
-      return this.initPromise;
-    })
-  );
+  suspendBeforeInit = atom(async (get) => {
+    get(this.items);
+    await this.initialDataPromise;
+  });
 
   items = atom(
-    (get) => get(this.cache),
-    async (get, set, update: typeof INIT) => {
-      // TODO: Prevent double initialization in parallel
-      if (update === INIT && !this.isInitialized) {
-        set(this.cache, await this.preloadData());
+    (get, { setSelf }) => {
+      if (!this.initialDataPromise) {
+        this.initialDataPromise = this.preloadData();
+        this.initialDataPromise.then(setSelf);
+      }
+
+      return get(this.cache);
+    },
+    async (get, set, items: Cache<Item>) => {
+      set(this.cache, items);
+
+      if (!this.channel) {
+        this.channel = new BroadcastChannel(
+          `jotai-minidb-broadcast:${this.config.name}`
+        );
 
         this.channel.onmessage = async (
           event: MessageEvent<BroadcastEvent<Item>>
@@ -118,7 +115,6 @@ export class MiniDb<Item> {
             );
           }
         };
-        this.onInitialized();
       }
     }
   );
@@ -128,7 +124,7 @@ export class MiniDb<Item> {
   values = atom((get) => Object.values(get(this.items) || {}));
   item = atomFamily((id: string) =>
     atom(
-      (get) => get(this.items)?.[id],
+      (get) => get(this.cache)?.[id],
       async (_get, set, update: Item) => {
         await set(this.set, id, update);
       }
@@ -180,17 +176,9 @@ export class MiniDb<Item> {
     this.channel.postMessage({ type: "UPDATE_MANY" });
   });
 
-  protected preloadDataPromise?: Promise<any>;
-
-  protected preloadData() {
-    if (!this.preloadDataPromise) {
-      this.preloadDataPromise = (async () => {
-        await this.migrate();
-        return Object.fromEntries(await idb.entries(this.idbStorage));
-      })();
-    }
-
-    return this.preloadDataPromise;
+  protected async preloadData() {
+    await this.migrate();
+    return Object.fromEntries(await idb.entries(this.idbStorage));
   }
 
   protected async migrate() {
