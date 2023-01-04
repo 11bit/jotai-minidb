@@ -2,7 +2,7 @@
 
 Simple but fully functional way to persist key-value data in IndexedDb for Jotai. Analogues to [atomWithStorage](https://jotai.org/docs/utils/atom-with-storage) but when localStorage is not enough.
 
-	 ⚠️ IMPORTANT: This package was initially created to experiment with [Jotai v2 API](https://jotai.org/docs/guides/migrating-to-v2-api) and currently doesn't support v1. Please open an issue if you are interested to use it with v1.
+> ⚠️ IMPORTANT: This package was initially created to experiment with [Jotai v2 API](https://jotai.org/docs/guides/migrating-to-v2-api) and currently doesn't support v1. Please open an issue if you are interested to use it with v1.
 
 # Features
 
@@ -12,32 +12,38 @@ Simple but fully functional way to persist key-value data in IndexedDb for Jotai
 - Data migrations (if you have some local data you will have to migrate it sooner or later)
 
 # Usage
+
 First, you need to create instance of a `MiniDb` class:
 
 ```js
-import { MiniDb } from 'jotai-minidb'
-const myDb = new MiniDb()
+import { MiniDb } from "jotai-minidb";
+const myDb = new MiniDb();
 ```
 
 ## Read
+
 - `useAtomValue(myDb.keys)` - get all keys in the storage
 - `useAtomValue(myDb.values)` - get all values in the storage
 - `useAtomValue(myDb.items)` - get key-value storage
 - `useAtomValue(myDb.entries)` - get all [key, value] entries
 
 ## Read/write item
+
 ```js
-const [item, setItem] = useAtom(myDb.item(key))
+const [item, setItem] = useAtom(myDb.item(key));
 ```
 
 ## Write
-### set value of the item by the key `key` 
+
+### set value of the item by the key `key`
+
 ```js
-const set = useSetAtom(myDb.set)
-set(key, value)
+const set = useSetAtom(myDb.set);
+set(key, value);
 ```
 
 ### update may items in the storage with an array of entries
+
 ```js
 const setMany = useSetAtom(myDb.setMany)
 setMany([
@@ -48,18 +54,21 @@ setMany([
 ```
 
 ### Delete by key
+
 ```js
 const delete = useSetAtom(myDb.delete)
 delete(key)
 ```
 
 ### Clear all
+
 ```js
-const clear = useSetAtom(myDb.clear)
-clear()
+const clear = useSetAtom(myDb.clear);
+clear();
 ```
 
 # Examples
+
 ```js
 // Jotai V2 API!
 import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
@@ -117,7 +126,9 @@ export function CreateUpdateOrDelete() {
 MiniDb constructor takes an optional configuration object with the following parameters:
 
 ## **name**
-	default: `jotai-minidb`
+
+    default: `jotai-minidb`
+
 Database name. If you need multiple collections you can simply define multiple storages with different names:
 
 ```
@@ -126,15 +137,16 @@ const authors = new MiniDb({ name: 'authors' })
 ```
 
 ## **version**
-	default: 0
+
+    default: 0
 
 Schema version is used to introduce breaking change to a shape of the data stored in a database. If data in IndexedDb has a version lower than **version** then it is migrated with set of **migrations**. If **version** is lower than version of the data in IndexedDb then exception is thrown and `onVersionMissmatch` handler is called
 
 ## **migrations**
-	default: {}
+
+    default: {}
 
 If **version** is greater than 0 you should provide a migration function for each version in **migrations** object where a key is `version` and value is a migration function
-
 
 ```
 const myDb = new MiniDb<Item>({
@@ -145,22 +157,24 @@ const myDb = new MiniDb<Item>({
             return item
         },
         2: (item) => {
-	        // migrate from 1 => 2
+            // migrate from 1 => 2
         }
     },
 });
 ```
 
 ## **onMigrationCompleted**
-	default: () => {
-		alert("Data has been migrated. Page will be reloaded");
-		window.location.reload();
-	}
-	
+
+    default: () => {
+        alert("Data has been migrated. Page will be reloaded");
+        window.location.reload();
+    }
+
 Callback that is called when migration is completed in _other browser tab or window_. For instance when user opens a new tab with the new version of the app.
 In simple cases the easiest way is to refresh the page because the old code likely can not work with migrated data anyway
 
 ## **onVersionMissmatch**
-	deafult: () => {}
 
-Callback that is called when version of the data in IndexedDb is _higher_ than the **version**. Should not happen in normal situations 
+    deafult: () => {}
+
+Callback that is called when version of the data in IndexedDb is _higher_ than the **version**. Should not happen in normal situations
