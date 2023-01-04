@@ -1,10 +1,8 @@
 /**
  * Experiment with jotai v2 api and simple key-value store (no types, no collections)
  * TODO:
- * - Write README
- * - Publish
- *
  * - Refactor
+ * - More test
  * - Clean atom family when delete
  * - Migrations: validate correct migrations are provided, decide what to do if migration doesn't return item
  */
@@ -53,7 +51,7 @@ const DEFAULT_CONFIG: Config = {
   version: 0,
   migrations: {},
   onMigrationCompleted: () => {
-    alert("Data has been migrated. Page should be reloaded");
+    alert("Data has been migrated. Page will be reloaded");
     window.location.reload();
   },
   onVersionMissmatch: () => {},
