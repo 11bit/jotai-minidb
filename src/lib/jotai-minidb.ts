@@ -43,7 +43,6 @@ type Config = {
   onVersionMissmatch: VoidFunction;
 };
 
-const INIT = Symbol("Reload");
 export const DEFAULT_DB_NAME = "jotai-minidb";
 
 const DEFAULT_CONFIG: Config = {
