@@ -85,7 +85,7 @@ export class MiniDb<Item> {
     await this.initialDataPromise;
   });
 
-  items = atom(
+  items = atom<Cache<Item> | undefined, [Cache<Item>], void>(
     (get, { setSelf }) => {
       if (!this.initialDataPromise) {
         this.initialDataPromise = this.preloadData();
