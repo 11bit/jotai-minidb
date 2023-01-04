@@ -2,7 +2,7 @@
   "name": "jotai-minidb",
   "description": "Simple Jotai interface for IndexedDB key-value storage",
   "author": "Ivan Buryak <ivan.buryak@gmail.com>",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "license": "MIT",
   "scripts": {
