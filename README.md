@@ -11,9 +11,15 @@ Simple but fully functional way to persist key-value data in IndexedDb for Jotai
 - Cross-tab sync (changes in one browser tab are automatically synced to other tabs)
 - Data migrations (if you have some local data you will have to migrate it sooner or later)
 
+# Installation
+
+```
+yarn add jotai-minidb jotai
+```
+
 # Usage
 
-First, you need to create instance of a `MiniDb` class:
+First, you need to create instance of a `MiniDb` class. `MiniDb` class instance provides set of atoms for reading and writing to IndexedDb storage
 
 ```js
 import { MiniDb } from "jotai-minidb";
@@ -22,9 +28,9 @@ const myDb = new MiniDb();
 
 ## Read
 
-- `useAtomValue(myDb.keys)` - get all keys in the storage
-- `useAtomValue(myDb.values)` - get all values in the storage
-- `useAtomValue(myDb.items)` - get key-value storage
+- `useAtomValue(myDb.keys)` - get all stored keys
+- `useAtomValue(myDb.values)` - get all values
+- `useAtomValue(myDb.items)` - get key-value object
 - `useAtomValue(myDb.entries)` - get all [key, value] entries
 
 ## Read/write item
