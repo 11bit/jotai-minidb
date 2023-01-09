@@ -64,8 +64,8 @@ export class MiniDb<Item> {
   private config: Config;
 
   // Initialization
-  private initialDataPromise?: Promise<any>;
-  private channelListenersInitialized = false;
+  private initStarted = atom(false);
+  private initialDataThenable = atomWithThenable();
 
   constructor(config: Partial<Config> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -82,23 +82,27 @@ export class MiniDb<Item> {
 
   suspendBeforeInit = atom(async (get) => {
     get(this.items);
-    await this.initialDataPromise;
+    await get(this.initialDataThenable).promise;
   });
 
-  items = atom<Cache<Item> | undefined, [Cache<Item>], void>(
+  isInitialized = atom(false);
+
+  items = atom<Cache<Item> | undefined, [void], void>(
     (get, { setSelf }) => {
-      if (!this.initialDataPromise) {
-        this.initialDataPromise = this.preloadData();
-        this.initialDataPromise.then(setSelf);
+      if (!get(this.initStarted)) {
+        Promise.resolve().then(setSelf);
       }
 
       return get(this.cache);
     },
-    async (_get, set, items: Cache<Item>) => {
-      set(this.cache, items);
+    async (get, set) => {
+      if (!get(this.initStarted)) {
+        set(this.initStarted, true);
+        this.preloadData().then((data) => {
+          set(this.cache, data);
+          get(this.initialDataThenable).resolve();
+        });
 
-      if (!this.channelListenersInitialized) {
-        this.channelListenersInitialized = true;
         this.channel.onmessage = async (
           event: MessageEvent<BroadcastEvent<Item>>
         ) => {
@@ -237,6 +241,22 @@ export class MiniDb<Item> {
       );
     }
   }
+}
+
+function atomWithThenable<K = void>() {
+  return atom(() => {
+    let resolve!: (data: K) => void, reject!: (error: unknown) => void;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+
+    return {
+      promise,
+      resolve,
+      reject,
+    };
+  });
 }
 
 function createStore(
