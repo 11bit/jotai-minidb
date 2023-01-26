@@ -3,7 +3,8 @@ import { it, expect, vi, beforeEach, describe } from "vitest";
 import "fake-indexeddb/auto";
 
 import { entries } from "idb-keyval";
-import { MiniDb } from "./jotai-minidb";
+import { DatabaseConfig, MiniDb } from "./jotai-minidb";
+import { resolver } from "@rocicorp/resolver";
 
 class BCMock {
   static instances: BCMock[] = [];
@@ -26,8 +27,8 @@ class BCMock {
 
 vi.stubGlobal("BroadcastChannel", BCMock);
 
-async function setup() {
-  const db = new MiniDb<string>();
+async function setup(dbConfig?: DatabaseConfig<string>) {
+  const db = new MiniDb<string>(dbConfig);
   const db2 = new MiniDb<string>();
   const store = createStore();
   await store.get(db.suspendBeforeInit);
@@ -44,6 +45,34 @@ it("Initialize with empty list", async () => {
   expect(store.get(db.keys)).toEqual([]);
   expect(store.get(db.values)).toEqual([]);
   expect(store.get(db.entries)).toEqual([]);
+});
+
+it("Initialize with default items", async () => {
+  const { db, store } = await setup({
+    name: "withDefaultItems",
+    initialData: {
+      test: "123",
+      hello: "world",
+    },
+  });
+  expect(store.get(db.items)).toEqual({ test: "123", hello: "world" });
+});
+
+it("Mount of `item` atom triggers initialization", async () => {
+  const done = resolver();
+  const db = new MiniDb({
+    name: "item init test",
+    initialData: {
+      test: "123",
+      hello: "world",
+    },
+  });
+  const store = createStore();
+  store.sub(db.item("test"), () => {
+    expect(store.get(db.item("test"))).toEqual("123");
+    done.resolve();
+  });
+  await done.promise;
 });
 
 it("Set", async () => {

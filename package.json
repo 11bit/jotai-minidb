@@ -19,6 +19,7 @@
     "require": "./dist/jotai-minidb.umd.cjs"
   },
   "dependencies": {
+    "@rocicorp/resolver": "^1.0.0",
     "idb-keyval": "^6.2.0"
   },
   "peerDependencies": {

@@ -43,6 +43,12 @@ type Config = {
   onVersionMissmatch: VoidFunction;
 };
 
+type ConfigWithInitialData<Item> = Config & {
+  initialData: Record<string, Item>;
+};
+
+export type DatabaseConfig<Item> = Partial<ConfigWithInitialData<Item>>;
+
 export const DEFAULT_DB_NAME = "jotai-minidb";
 
 const DEFAULT_CONFIG: Config = {
@@ -61,17 +67,18 @@ export class MiniDb<Item> {
   private cache = atom<Cache<Item> | undefined>(undefined);
   private idbStorage: idb.UseStore;
   private metaStorage: idb.UseStore;
-  private config: Config;
+  private config: ConfigWithInitialData<Item>;
 
   // Initialization
   private initStarted = atom(false);
   private initialDataThenable = atomWithThenable();
 
-  constructor(config: Partial<Config> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(config: DatabaseConfig<Item> = {}) {
+    this.config = { ...DEFAULT_CONFIG, initialData: {}, ...config };
     const { keyvalStorage, metaStorage } = createStore(
       this.config.name,
-      "key-value"
+      "key-value",
+      this.config.initialData
     );
     this.idbStorage = keyvalStorage;
     this.metaStorage = metaStorage;
@@ -136,7 +143,7 @@ export class MiniDb<Item> {
   values = atom((get) => Object.values(get(this.items) || {}));
   item = atomFamily((id: string) =>
     atom(
-      (get) => get(this.cache)?.[id],
+      (get) => get(this.items)?.[id],
       async (_get, set, update: ValueOrSetter<Item>) => {
         await set(this.set, id, update);
       }
@@ -261,20 +268,29 @@ function atomWithThenable<K = void>() {
 
 function createStore(
   dbName: string,
-  storeName: string
+  storeName: string,
+  initialData: Record<string, unknown>
 ): { keyvalStorage: idb.UseStore; metaStorage: idb.UseStore } {
   const request = indexedDB.open(dbName);
+  const initialDataAddRequests: Promise<IDBValidKey>[] = [];
   request.onupgradeneeded = (event) => {
-    request.result.createObjectStore(storeName);
+    const objectStore = request.result.createObjectStore(storeName);
     request.result.createObjectStore("_meta");
+
+    for (const [key, value] of Object.entries(initialData)) {
+      initialDataAddRequests.push(
+        idb.promisifyRequest(objectStore.add(value, key))
+      );
+    }
   };
   const dbp = idb.promisifyRequest(request);
 
   return {
-    keyvalStorage: (txMode, callback) =>
-      dbp.then((db) =>
-        callback(db.transaction(storeName, txMode).objectStore(storeName))
-      ),
+    keyvalStorage: async (txMode, callback) => {
+      const db = await dbp;
+      await Promise.all(initialDataAddRequests);
+      return callback(db.transaction(storeName, txMode).objectStore(storeName));
+    },
     metaStorage: (txMode, callback) =>
       dbp.then((db) =>
         callback(db.transaction("_meta", txMode).objectStore("_meta"))

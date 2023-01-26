@@ -429,6 +429,11 @@
     "@types/node" "*"
     playwright-core "1.29.1"
 
+"@rocicorp/resolver@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@rocicorp/resolver/-/resolver-1.0.0.tgz#aa3e94fcd72b421516c9f076981e75e838c4ebf4"
+  integrity sha512-iK0QW74BKR0ogY4QwBEAMoevqypi5S/jjKqL6mc7KH7z2PFuOinOebsD1Ol8VIxrh23IPrMNwDNSrnfhKga9Vw==
+
 "@rollup/pluginutils@^5.0.2":
   version "5.0.2"
   resolved "https://registry.npmjs.org/@rollup/pluginutils/-/pluginutils-5.0.2.tgz"
