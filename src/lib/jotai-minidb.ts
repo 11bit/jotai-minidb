@@ -153,9 +153,12 @@ export class MiniDb<Item> {
   set = atom(
     null,
     async (get, set, id: string, valueOrSetter: ValueOrSetter<Item>) => {
+      if (!get(this.cache)) {
+        await get(this.suspendBeforeInit);
+      }
       const cache = get(this.cache);
       if (!cache) {
-        throw new Error("Write to store before it is loaded");
+        throw new Error("Cache was not initialized"); // Should not happen
       }
       const value = isSetter(valueOrSetter)
         ? valueOrSetter(cache[id])
@@ -170,7 +173,7 @@ export class MiniDb<Item> {
 
   setMany = atom(null, async (get, set, entries: [string, Item][]) => {
     if (!get(this.cache)) {
-      throw new Error("Write to store before it is loaded");
+      await get(this.suspendBeforeInit);
     }
     await idb.setMany(entries, this.idbStorage);
 
@@ -184,7 +187,7 @@ export class MiniDb<Item> {
 
   delete = atom(null, async (get, set, id: string) => {
     if (!get(this.cache)) {
-      throw new Error("Delete from the store before it is loaded");
+      await get(this.suspendBeforeInit);
     }
     await idb.del(id, this.idbStorage);
     set(this.cache, (data) => {
@@ -197,7 +200,7 @@ export class MiniDb<Item> {
 
   clear = atom(null, async (get, set) => {
     if (!get(this.cache)) {
-      throw new Error("Delete from the store before it is loaded");
+      await get(this.suspendBeforeInit);
     }
     await idb.clear(this.idbStorage);
     set(this.cache, {});

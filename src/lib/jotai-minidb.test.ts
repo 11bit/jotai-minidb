@@ -1,10 +1,10 @@
 import { createStore } from "jotai/vanilla";
 import { it, expect, vi, beforeEach, describe } from "vitest";
-import "fake-indexeddb/auto";
-
+import { IDBFactory } from "fake-indexeddb";
 import { entries } from "idb-keyval";
-import { DatabaseConfig, MiniDb } from "./jotai-minidb";
 import { resolver } from "@rocicorp/resolver";
+
+import { DatabaseConfig, MiniDb } from "./jotai-minidb";
 
 class BCMock {
   static instances: BCMock[] = [];
@@ -38,6 +38,7 @@ async function setup(dbConfig?: DatabaseConfig<string>) {
 
 beforeEach(() => {
   BCMock.reset();
+  global.indexedDB = new IDBFactory();
 });
 
 it("Initialize with empty list", async () => {
@@ -88,7 +89,9 @@ it("Set", async () => {
 });
 
 it("Delete", async () => {
-  const { db, db2, store } = await setup();
+  const { db, db2, store } = await setup({
+    initialData: { "test-id": "new value" },
+  });
   expect(store.get(db.entries)).toEqual([["test-id", "new value"]]);
   expect(store.get(db2.entries)).toEqual([["test-id", "new value"]]);
   expect(await entries(db["idbStorage"])).toEqual([["test-id", "new value"]]);
@@ -106,8 +109,6 @@ it("Set with function", async () => {
   expect(store.get(db.items)).toEqual({ "my-item": "hello" });
   await store.set(db.set, "my-item", (oldVal) => oldVal + " world");
   expect(store.get(db.items)).toEqual({ "my-item": "hello world" });
-
-  await store.set(db.clear); // 😟
 });
 
 it("Set item with function", async () => {
@@ -119,9 +120,59 @@ it("Set item with function", async () => {
   expect(store.get(db.items)).toEqual({ "123": "hello123" });
 });
 
+describe("write before read", () => {
+  it("set", async () => {
+    const db = new MiniDb<string>();
+    const store = createStore();
+
+    await store.set(db.item("hello"), "123");
+    expect(store.get(db.item("hello"))).toEqual("123");
+  });
+
+  it("set with func", async () => {
+    const db = new MiniDb<string>();
+    const store = createStore();
+
+    await store.set(db.item("hello"), (old) => "123");
+    expect(store.get(db.item("hello"))).toEqual("123");
+  });
+
+  it("setMany", async () => {
+    const db = new MiniDb<string>();
+    const store = createStore();
+    const entries: [string, string][] = [
+      ["hello", "world"],
+      ["foo", "bar"],
+    ];
+
+    await store.set(db.setMany, entries);
+    expect(store.get(db.entries)).toEqual(entries);
+  });
+
+  it("delete", async () => {
+    const db = new MiniDb<string>({
+      initialData: { color: "red" },
+    });
+    const store = createStore();
+
+    await store.set(db.delete, "color");
+    expect(store.get(db.entries)).toEqual([]);
+  });
+
+  it("clear", async () => {
+    const db = new MiniDb<string>({
+      initialData: { color: "blue" },
+    });
+    const store = createStore();
+
+    await store.set(db.clear);
+    expect(store.get(db.entries)).toEqual([]);
+  });
+});
+
 describe("With custom db name", () => {
-  async function setupMany() {
-    const db1 = new MiniDb({ name: "a" });
+  async function setupMany(dbConfig?: DatabaseConfig<string>) {
+    const db1 = new MiniDb({ name: "a", ...dbConfig });
     const db2 = new MiniDb({ name: "b" });
     const store = createStore();
     await store.get(db1.suspendBeforeInit);
@@ -138,7 +189,9 @@ describe("With custom db name", () => {
   });
 
   it("Delete", async () => {
-    const { db1, db2, store } = await setupMany();
+    const { db1, db2, store } = await setupMany({
+      initialData: { "123": "new value" },
+    });
     expect(store.get(db1.entries)).toEqual([["123", "new value"]]);
     expect(store.get(db2.entries)).toEqual([]);
 
