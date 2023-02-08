@@ -4,6 +4,9 @@ Simple but fully functional way to persist key-value data in IndexedDb for Jotai
 
 > ⚠️ IMPORTANT: This package was initially created to experiment with [Jotai v2 API](https://jotai.org/docs/guides/migrating-to-v2-api) and currently doesn't support v1. Please open an issue if you are interested to use it with v1.
 
+
+[Demo App](https://json-box.vercel.app/) | [Repo](https://github.com/11bit/json-box)
+
 # Features
 
 - IndexedDB persistency
