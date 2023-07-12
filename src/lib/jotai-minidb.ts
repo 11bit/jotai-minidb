@@ -164,9 +164,8 @@ export class MiniDb<Item> {
         ? valueOrSetter(cache[id])
         : valueOrSetter;
 
-      await idb.set(id, value, this.idbStorage);
-
       set(this.cache, (data) => ({ ...data, [id]: value }));
+      await idb.set(id, value, this.idbStorage);
       this.channel.postMessage({ type: "UPDATE", id, item: value });
     }
   );
@@ -175,13 +174,13 @@ export class MiniDb<Item> {
     if (!get(this.cache)) {
       await get(this.suspendBeforeInit);
     }
-    await idb.setMany(entries, this.idbStorage);
 
     const data = { ...get(this.cache) };
     for (const [key, val] of entries) {
       data[key] = val;
     }
     set(this.cache, data);
+    await idb.setMany(entries, this.idbStorage);
     this.channel.postMessage({ type: "UPDATE_MANY" });
   });
 
@@ -189,12 +188,12 @@ export class MiniDb<Item> {
     if (!get(this.cache)) {
       await get(this.suspendBeforeInit);
     }
-    await idb.del(id, this.idbStorage);
     set(this.cache, (data) => {
       const copy = { ...data };
       delete copy[id];
       return copy;
     });
+    await idb.del(id, this.idbStorage);
     this.channel.postMessage({ type: "DELETE", id });
   });
 
@@ -202,8 +201,8 @@ export class MiniDb<Item> {
     if (!get(this.cache)) {
       await get(this.suspendBeforeInit);
     }
-    await idb.clear(this.idbStorage);
     set(this.cache, {});
+    await idb.clear(this.idbStorage);
     this.channel.postMessage({ type: "UPDATE_MANY" });
   });
 
