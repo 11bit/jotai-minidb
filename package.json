@@ -13,10 +13,17 @@
     "pw": "yarn playwright test"
   },
   "main": "./dist/jotai-minidb.umd.cjs",
+  "module": "./dist/jotai-minidb.js",
   "types": "./dist/lib/jotai-minidb.d.ts",
   "exports": {
-    "import": "./dist/jotai-minidb.js",
-    "require": "./dist/jotai-minidb.umd.cjs"
+    "import": {
+      "types": "./dist/lib/jotai-minidb.d.ts",
+      "default": "./dist/jotai-minidb.js"
+    },
+    "require": {
+      "types": "./dist/lib/jotai-minidb.d.ts",
+      "default": "./dist/jotai-minidb.umd.cjs"
+    }
   },
   "dependencies": {
     "@rocicorp/resolver": "^1.0.0",
